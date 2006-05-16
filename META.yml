@@ -1,0 +1,17 @@
+---
+name: SVK-Log-Filter-Stats
+version: 0.0.1
+author: ~
+abstract: display statistics for a repository or working copy
+license: perl
+requires:
+  List::Util: 0
+  SVK: 2
+  Time::Local: 0
+build_requires:
+  Test::More: 0
+provides:
+  SVK::Log::Filter::Stats:
+    file: lib/SVK/Log/Filter/Stats.pm
+    version: 0.0.1
+generated_by: Module::Build version 0.2611
