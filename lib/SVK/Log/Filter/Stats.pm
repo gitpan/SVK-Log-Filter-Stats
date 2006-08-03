@@ -3,67 +3,67 @@ package SVK::Log::Filter::Stats;
 use strict;
 use warnings;
 
-use SVK::Log::Filter;
+use base qw( SVK::Log::Filter );
 use List::Util qw( max min minstr maxstr );
 use Time::Local;
 
-our $VERSION = '0.0.1';
+our $VERSION = '0.0.3';
 
 sub setup {
-    my ($self, $stash) = @_[SELF, STASH];
+    my ($self, $args) = @_;
 
-    $stash->{stats_commits} = 0;
-    $stash->{stats_committers} = {};
-    $stash->{stats_files} = {};
+    $self->{commits} = 0;
+    $self->{committers} = {};
+    $self->{files} = {};
 
     # hacks!
-    $stash->{stats_newest_commit} = '';
-    $stash->{stats_oldest_commit}   = '9999-99-99';
+    $self->{newest_commit} = '';
+    $self->{oldest_commit}   = '9999-99-99';
 }
 
 sub revision {
-    my ($self, $props, $changed_paths, $stash) = @_[SELF, PROPS, PATHS, STASH];
+    my ($self, $args) = @_;
+    my ($props, $changed_paths) = @{$args}{'props', 'paths'};
 
     my $date   = $props->{'svn:date'}   || q{};
     my $author = $props->{'svn:author'} || 'no author';
 
     # track the commit dates (usually from newest to oldest)
-    $stash->{stats_newest_commit} = maxstr( $stash->{stats_newest_commit}, $date );
-    $stash->{stats_oldest_commit} = minstr( $stash->{stats_oldest_commit}, $date );
+    $self->{newest_commit} = maxstr( $self->{newest_commit}, $date );
+    $self->{oldest_commit} = minstr( $self->{oldest_commit}, $date );
 
-    $stash->{stats_commits}++;
-    $stash->{stats_committers}{$author}++;
+    $self->{commits}++;
+    $self->{committers}{$author}++;
 
     for my $changed_path ( $changed_paths->paths() ) {
         my $path = $changed_path->path();
-        $stash->{stats_files}{$path}++;
+        $self->{files}{$path}++;
     }
 
     return;
 }
 
 sub footer {
-    my ($self, $stash) = @_[SELF, STASH];
+    my ($self, $args) = @_;
+    my $stash = $args->{stash};
 
     my $quiet   = $stash->{quiet};
     my $verbose = $stash->{verbose};
 
-    $self->newest_commit($stash);
-    $self->oldest_commit($stash);
-    print "Commits: ", $stash->{stats_commits}, "\n";
+    $self->newest_commit;
+    $self->oldest_commit;
+    print "Commits: ", $self->{commits}, "\n";
 
-    my $days = $self->days($stash);
-    $self->commits_per_day($stash, $days);
-
+    $self->commits_per_day;
 
     my $author_count = $verbose ? 999_999 : 5;
-    $self->author_details($stash, $author_count) if !$quiet;
-    $self->file_details($stash, 5) if $verbose;
+    $self->author_details($author_count) if !$quiet;
+    $self->file_details(5) if $verbose;
 
     if ($verbose) {
         print "Concentration:\n";
-        $self->concentration_ratio($stash);
-        $self->herfindahl($stash);
+        $self->concentration_ratio;
+        $self->herfindahl;
     }
 
     return;
@@ -71,21 +71,21 @@ sub footer {
 
 
 sub newest_commit {
-    my ($self, $stash) = @_;
-    my $newest = substr($stash->{stats_newest_commit}, 0, 10);
+    my ($self) = @_;
+    my $newest = substr($self->{newest_commit}, 0, 10);
     print "Newest commit : $newest\n";
 }
 
 sub oldest_commit {
-    my ($self, $stash) = @_;
-    my $oldest = substr($stash->{stats_oldest_commit}, 0, 10);
+    my ($self) = @_;
+    my $oldest = substr($self->{oldest_commit}, 0, 10);
     print "Oldest commit : $oldest\n";
 }
 
 sub days {
-    my ($self, $stash) = @_;
-    my $young = _date_into_time( $stash->{stats_newest_commit} );
-    my $old = _date_into_time( $stash->{stats_oldest_commit} );
+    my ($self) = @_;
+    my $young = _date_into_time( $self->{newest_commit} );
+    my $old = _date_into_time( $self->{oldest_commit} );
 
     my $delta = $young - $old;
     my $days = int($delta/86400);
@@ -103,12 +103,13 @@ sub _date_into_time {
 }
 
 sub commits_per_day {
-    my ($self, $stash, $days) = @_;
+    my ($self) = @_;
 
+    my $days = $self->days;
     return if $days < 1;
-    return if $stash->{stats_commits} < 1;
+    return if $self->{commits} < 1;
 
-    my $c_per_day = $stash->{stats_commits} / $days;
+    my $c_per_day = $self->{commits} / $days;
 
     if ( $c_per_day > 1 ) {
         printf "Commits per day : %.1f\n", $c_per_day;
@@ -119,12 +120,12 @@ sub commits_per_day {
 }
 
 sub author_details {
-    my ($self, $stash, $count) = @_;
+    my ($self, $count) = @_;
     $count ||= 5;
 
     # sort the committer list by commits
     my @committers;
-    while ( my ($author, $commits) = each %{ $stash->{stats_committers} } ) {
+    while ( my ($author, $commits) = each %{ $self->{committers} } ) {
         push @committers, [ $author, $commits ];
     }
     @committers = sort { $b->[1] <=> $a->[1] } @committers;
@@ -146,12 +147,12 @@ sub author_details {
 }
 
 sub file_details {
-    my ($self, $stash, $count) = @_;
+    my ($self, $count) = @_;
     $count ||= 5;
 
     # sort the file list by modifications
     my @files;
-    while ( my ($path, $commits) = each %{ $stash->{stats_files} } ) {
+    while ( my ($path, $commits) = each %{ $self->{files} } ) {
         push @files, [ $path, $commits ];
     }
     @files = sort { $b->[1] <=> $a->[1] } @files;
@@ -173,13 +174,13 @@ sub file_details {
 }
 
 sub concentration_ratio {
-    my ($self, $stash) = @_;
+    my ($self) = @_;
 
-    my $commit_count = $stash->{stats_commits};
+    my $commit_count = $self->{commits};
     return if $commit_count < 1;
 
     my @committers;
-    for my $commits ( values %{ $stash->{stats_committers} } ) {
+    for my $commits ( values %{ $self->{committers} } ) {
         push @committers, $commits;
     }
     return if @committers < 4;
@@ -196,13 +197,13 @@ sub concentration_ratio {
 }
 
 sub herfindahl {
-    my ($self, $stash) = @_;
+    my ($self) = @_;
 
-    my $commit_count = $stash->{stats_commits};
+    my $commit_count = $self->{commits};
     return if $commit_count < 1;
 
     my @committers;
-    for my $commits ( values %{ $stash->{stats_committers} } ) {
+    for my $commits ( values %{ $self->{committers} } ) {
         push @committers, $commits;
     }
 
@@ -224,9 +225,9 @@ __END__
 
 =head1 NAME
 
-SVK::Log::Filter::Stats - display statistics for a repository or working copy
+SVK::Log::Filter::Stats - display cumulative statistics for revisions
 
-=head2 SYNOPSIS
+=head1 SYNOPSIS
 
     > svk log --output stats //mirror/svk/trunk
     Newest commit : 2006-05-13
@@ -301,7 +302,8 @@ Display the L</Count of modified files> and L</Most modified files> statistics
 =item *
 
 Display the concentration statistics: L</Concentration ratio>,
-L</Herfindahl index>, L</Normalized Herfindahl index>.
+L</Herfindahl index>, L</Normalized Herfindahl index>,
+L</Equivalent committers>.
 
 =back
 
@@ -408,20 +410,32 @@ them.
 
 =head1 STASH/PROPERTY MODIFICATIONS
 
-Stats leaves all properties intact and only modifies the stash under the
-"stats_" namespace.
+Stats leaves all properties intact and does not modify the stash.
 
 =head1 AUTHORS
 
-Michael Hendricks E<lt>michael@palmcluster.orgE<gt>
+Michael Hendricks <michael@ndrix.org>
 
-=head1 COPYRIGHT
+=head1 LICENSE AND COPYRIGHT
+ 
+The MIT License
 
-Copyright 2006 by Michael Hendricks E<lt>michael@palmcluster.orgE<gt>
+Copyright (c) 2006 Michael Hendricks (<michael@ndrix.org>).
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-See L<http://www.perl.com/perl/misc/Artistic.html>
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-=cut
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

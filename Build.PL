@@ -4,12 +4,12 @@ use Module::Build;
 
 my $builder = Module::Build->new(
     module_name         => 'SVK::Log::Filter::Stats',
-    license             => 'perl',
+    license             => 'mit',
     dist_version_from   => 'lib/SVK/Log/Filter/Stats.pm',
     sign                => 1,
     create_makefile_pl  => 'passthrough',
     requires => {
-        SVK           => 2,
+        SVK           => '1.99',
         'List::Util'  => 0,
         'Time::Local' => 0,
     },
