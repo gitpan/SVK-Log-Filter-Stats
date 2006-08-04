@@ -3,11 +3,11 @@ package SVK::Log::Filter::Stats;
 use strict;
 use warnings;
 
-use base qw( SVK::Log::Filter );
+use base qw( SVK::Log::Filter::Output );
 use List::Util qw( max min minstr maxstr );
 use Time::Local;
 
-our $VERSION = '0.0.3';
+our $VERSION = '0.0.4';
 
 sub setup {
     my ($self, $args) = @_;

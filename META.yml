@@ -1,12 +1,12 @@
 ---
 name: SVK-Log-Filter-Stats
 version: !!perl/hash:Module::Build::Version
-  original: 0.0.3
+  original: 0.0.4
   qv: 1
   version:
     - 0
     - 0
-    - 3
+    - 4
 author:
   - 'Michael Hendricks <michael@ndrix.org>'
 abstract: display cumulative statistics for revisions
@@ -22,7 +22,7 @@ build_requires:
 provides:
   SVK::Log::Filter::Stats:
     file: lib/SVK/Log/Filter/Stats.pm
-    version: 0.0.3
+    version: 0.0.4
 generated_by: Module::Build version 0.2804
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
